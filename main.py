@@ -2,6 +2,7 @@ import logging
 import sys
 
 import settings
+from oanda.oanda import APIClient
 
 logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 
@@ -18,3 +19,15 @@ if __name__ == '__main__':
     print(settings.past_period)
     print(settings.stop_limit_percent)
     print(settings.num_ranking)
+
+    api_client = APIClient(access_token=settings.access_token, account_id=settings.account_id)
+    balance = api_client.get_balance()
+    print(balance.available)
+    print(balance.currency)
+
+    ticker = api_client.get_ticker(product_code='USD/JPY')
+    print(ticker.product_code)
+    print(ticker.timestamp)
+    print(ticker.bid)
+    print(ticker.ask)
+    print(ticker.volume)
