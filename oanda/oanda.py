@@ -1,12 +1,15 @@
 from datetime import datetime
 import logging
-
+import math
 import dateutil.parser
 from oandapyV20 import API
 from oandapyV20.endpoints import accounts
+from oandapyV20.endpoints import instruments
 from oandapyV20.endpoints.pricing import PricingInfo
 from oandapyV20.exceptions import V20Error
 
+import settings
+from utils import constants
 logger = logging.getLogger(__name__)
 
 
@@ -17,6 +20,36 @@ class Ticker(object):
         self.bid = bid
         self.ask = ask
         self.volume = volume
+
+    @property
+    def mid_price(self):
+        return (self.bid + self.ask) / 2
+
+    @property
+    def time(self):
+        return datetime.utcfromtimestamp(self.timestamp)
+
+    # 2020-01-02 03:04:27
+    # 2020-01-02 03:04:25 5S
+    # 2020-01-02 03:04:00 1M
+    # 2020-01-02 03:00:00 1H
+    def truncate_date_time(self, duration):
+        ticker_time = self.time
+        if duration == constants.DURATION_S5:
+            new_sec = math.floor(self.time.second / 5) * 5
+            ticker_time = datetime(self.time.year, self.time.month, self.time.day,
+                                   self.time.hour, self.time.minute, new_sec)
+            time_format = '%Y-%m-%d %H:%M:%S'
+        elif duration == constants.DURATION_M1:
+            time_format = '%Y-%m-%d %H:%M'
+        elif duration == constants.DURATION_H1:
+            time_format = '%Y-%m-%d %H'
+        else:
+            logger.warning('action=truncate_date_time error=no_datetime_format')
+            return None
+
+        str_date = datetime.strftime(ticker_time, time_format)
+        return datetime.strptime(str_date, time_format)
 
 
 class Balance(object):
@@ -63,3 +96,4 @@ class APIClient(object):
                       bid=bid,
                       ask=ask,
                       volume=volume)
+

@@ -31,3 +31,9 @@ if __name__ == '__main__':
     print(ticker.bid)
     print(ticker.ask)
     print(ticker.volume)
+
+    print(ticker.truncate_date_time('5s'))
+    print(ticker.truncate_date_time('1m'))
+    print(ticker.truncate_date_time('1h'))
+    print(ticker.mid_price)
+
