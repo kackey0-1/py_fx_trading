@@ -5,12 +5,20 @@ import dateutil.parser
 from oandapyV20 import API
 from oandapyV20.endpoints import accounts
 from oandapyV20.endpoints import instruments
+from oandapyV20.endpoints import orders
 from oandapyV20.endpoints.pricing import PricingInfo
+from oandapyV20.endpoints.pricing import PricingStream
 from oandapyV20.exceptions import V20Error
 
 import settings
 from utils import constants
 logger = logging.getLogger(__name__)
+
+
+class Balance(object):
+    def __init__(self, currency, available):
+        self.currency = currency
+        self.available = available
 
 
 class Ticker(object):
@@ -52,10 +60,14 @@ class Ticker(object):
         return datetime.strptime(str_date, time_format)
 
 
-class Balance(object):
-    def __init__(self, currency, available):
-        self.currency = currency
-        self.available = available
+class Order(object):
+    def __init__(self, product_code, side, units, order_type='MARKET', order_state=None, filling_transaction_id=None):
+        self.product_code = product_code
+        self.side = side
+        self.units = units
+        self.order_type = order_type
+        self.order_state = order_state
+        self.filling_transaction_id=filling_transaction_id
 
 
 class APIClient(object):
@@ -90,10 +102,45 @@ class APIClient(object):
         instrument = prices['instrument']
         bid = float(prices['bids'][0]['price'])
         ask = float(prices['asks'][0]['price'])
-        volume = 1111
+        volume = self.get_candle_volume()
         return Ticker(product_code=instrument,
                       timestamp=timestamp,
                       bid=bid,
                       ask=ask,
                       volume=volume)
+
+    def get_candle_volume(self, count=1, granularity=constants.TRADE_MAP[settings.trade_duration]['granularity']):
+        params = {
+            'count': count,
+            'granularity': granularity
+        }
+        req = instruments.InstrumentsCandles(instrument=settings.product_code, params=params)
+        try:
+            resp = self.client.request(req)
+        except V20Error as e:
+            logger.error(f'action=get_candle_volume error={e}')
+            raise
+        print(resp)
+        return int(resp['candles'][0]['volume'])
+
+    def get_realtime_ticker(self, callback):
+        req = PricingStream(accountID=self.account_id, params={
+            'instruments': settings.product_code})
+        try:
+            for resp in self.client.request(req):
+                if resp['type'] == 'PRICE':
+                    print(resp)
+                    timestamp = datetime.timestamp(dateutil.parser.parse(resp['time']))
+                    instrument = resp['instrument']
+                    bid = float(resp['bids'][0]['price'])
+                    ask = float(resp['asks'][0]['price'])
+                    volume = self.get_candle_volume()
+                    ticker = Ticker(instrument, timestamp, bid, ask, volume)
+                    callback(ticker)
+
+        except V20Error as e:
+            logger.error(f'action=get_realtime_ticker error={e}')
+            raise
+
+
 

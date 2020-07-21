@@ -36,4 +36,16 @@ if __name__ == '__main__':
     print(ticker.truncate_date_time('1m'))
     print(ticker.truncate_date_time('1h'))
     print(ticker.mid_price)
+    print(ticker.volume)
+
+    from functools import partial
+
+    def trade(ticker):
+        print(ticker.mid_price)
+        print(ticker.ask)
+        print(ticker.bid)
+
+    callback = partial(trade)
+    api_client.get_realtime_ticker(callback)
+
 

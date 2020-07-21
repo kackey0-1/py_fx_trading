@@ -23,5 +23,7 @@ TRADE_MAP = {
     },
 }
 
-
+BUY = 'BUY'
+SELL = 'SELL'
+PRODUCT_CODE_JPY_USD = 'JPY_USD'
 
