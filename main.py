@@ -2,11 +2,14 @@ import logging
 import sys
 
 import settings
+import constants
 from oanda.oanda import APIClient
+from oanda.oanda import Order
 
 logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 
 if __name__ == '__main__':
+    """
     print(settings.account_id)
     print(settings.access_token)
     print(settings.product_code)
@@ -19,8 +22,9 @@ if __name__ == '__main__':
     print(settings.past_period)
     print(settings.stop_limit_percent)
     print(settings.num_ranking)
-
+    """
     api_client = APIClient(access_token=settings.access_token, account_id=settings.account_id)
+    """
     balance = api_client.get_balance()
     print(balance.available)
     print(balance.currency)
@@ -47,5 +51,12 @@ if __name__ == '__main__':
 
     callback = partial(trade)
     api_client.get_realtime_ticker(callback)
+    """
+    order = Order(
+        product_code=settings.product_code,
+        side=constants.BUY,
+        units=10
+    )
+    api_client.send_order(order)
 
 

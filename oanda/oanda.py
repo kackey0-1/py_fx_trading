@@ -11,7 +11,8 @@ from oandapyV20.endpoints.pricing import PricingStream
 from oandapyV20.exceptions import V20Error
 
 import settings
-from utils import constants
+import constants
+
 logger = logging.getLogger(__name__)
 
 
@@ -142,5 +143,46 @@ class APIClient(object):
             logger.error(f'action=get_realtime_ticker error={e}')
             raise
 
+    def send_order(self, order: Order):
+        if order.side == constants.BUY:
+            side = 1
+        elif order.side == constants.SELL:
+            side = -1
+        order_data = {
+            'order': {
+                'type': order.order_type,
+                'instrument': order.product_code,
+                'units': order.units * side
+            }
+        }
+        req = orders.OrderCreate(accountID=self.account_id, data=order_data)
+        try:
+            resp = self.client.request(req)
+            logger.info(f'action=send_order resp={resp}')
+        except V20Error as e:
+            logger.error(f'action=send_order error={e}')
+            raise
+        order_id = resp['orderCreateTransaction']['id']
+        self.get_order(order_id)
 
+    def wait_order_complete(self, order_id) -> Order:
+        count = 0
+        timeout_count = 3
+
+    def get_order(self, order_id):
+        req = orders.OrderDetails(accountID=self.account_id, orderID=order_id)
+        try:
+            resp = self.client.request(req)
+            logger.info(f'action=get_order resp={resp}')
+        except V20Error as e:
+            logger.error(f'action=get_order error={e}')
+            raise
+        order = Order(
+            product_code=resp['order']['instrument'],
+            side=constants.BUY if float(resp['order']['units']) > 0 else constants.SELL,
+            units=float(resp['order']['units']),
+            order_type=resp['order']['type'],
+            order_state=resp['order']['state'],
+            filling_transaction_id=resp['order'].get('fillingTransactionId')
+        )
 
