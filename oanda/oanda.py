@@ -1,17 +1,21 @@
 from datetime import datetime
 import logging
 import math
+import time
 import dateutil.parser
 from oandapyV20 import API
 from oandapyV20.endpoints import accounts
 from oandapyV20.endpoints import instruments
 from oandapyV20.endpoints import orders
+from oandapyV20.endpoints import trades
 from oandapyV20.endpoints.pricing import PricingInfo
 from oandapyV20.endpoints.pricing import PricingStream
 from oandapyV20.exceptions import V20Error
 
 import settings
 import constants
+
+ORDER_FILLED = 'FILLED'
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +73,18 @@ class Order(object):
         self.order_type = order_type
         self.order_state = order_state
         self.filling_transaction_id=filling_transaction_id
+
+
+class OrderTimeoutError(Exception):
+    """Order Timeout Error"""
+
+
+class Trade(object):
+    def __init__(self, trade_id, side, price, units):
+        self.trade_id = trade_id
+        self.side = side
+        self.price = price
+        self.units = units
 
 
 class APIClient(object):
@@ -163,11 +179,23 @@ class APIClient(object):
             logger.error(f'action=send_order error={e}')
             raise
         order_id = resp['orderCreateTransaction']['id']
-        self.get_order(order_id)
+        order = self.wait_order_complete(order_id)
+        if not order:
+            logger.error('action=send_order error=timeout')
+            raise OrderTimeoutError
+        return order
 
     def wait_order_complete(self, order_id) -> Order:
         count = 0
         timeout_count = 3
+        while True:
+            order = self.get_order(order_id)
+            if order.order_state == ORDER_FILLED:
+                return order
+            time.sleep(1)
+            count += 1
+            if count > timeout_count:
+                return None
 
     def get_order(self, order_id):
         req = orders.OrderDetails(accountID=self.account_id, orderID=order_id)
@@ -185,4 +213,25 @@ class APIClient(object):
             order_state=resp['order']['state'],
             filling_transaction_id=resp['order'].get('fillingTransactionId')
         )
+        return order
+
+    def trade_details(self, trade_id):
+        req = trades.TradeDetails(self.account_id, trade_id)
+        try:
+            resp = self.client.request(req)
+            logger.info(f'action=trade_details resp={resp}')
+        except V20Error as e:
+            logger.error(f'action=trade_details error={e}')
+            raise
+        trade = Trade(
+            trade_id=trade_id,
+            side=constants.BUY if float(resp['trade']['currentUnits']) > 0 else constants.SELL,
+            units=float(resp['trade']['currentUnits']),
+            price=float(resp['trade']['price'])
+        )
+        return trade
+
+
+
+
 
