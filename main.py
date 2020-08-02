@@ -57,6 +57,18 @@ if __name__ == '__main__':
         side=constants.BUY,
         units=10
     )
-    api_client.send_order(order)
+    """
+    trade = api_client.send_order(order)
+    print(trade.trade_id)
+    print(trade.side)
+    print(trade.units)
+    print(trade.price)
+    """
+    import time
+    time.sleep(3)
 
-
+    trades = api_client.get_open_trade()
+    for t in trades:
+        print(t.trade_id, t.price, t.side, t.units)
+        trade = api_client.trade_close(t.trade_id)
+        print(trade)

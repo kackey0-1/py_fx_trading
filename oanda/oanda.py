@@ -159,7 +159,7 @@ class APIClient(object):
             logger.error(f'action=get_realtime_ticker error={e}')
             raise
 
-    def send_order(self, order: Order):
+    def send_order(self, order: Order) -> Trade:
         if order.side == constants.BUY:
             side = 1
         elif order.side == constants.SELL:
@@ -183,7 +183,7 @@ class APIClient(object):
         if not order:
             logger.error('action=send_order error=timeout')
             raise OrderTimeoutError
-        return order
+        return self.trade_details(order.filling_transaction_id)
 
     def wait_order_complete(self, order_id) -> Order:
         count = 0
@@ -215,7 +215,7 @@ class APIClient(object):
         )
         return order
 
-    def trade_details(self, trade_id):
+    def trade_details(self, trade_id) -> Trade:
         req = trades.TradeDetails(self.account_id, trade_id)
         try:
             resp = self.client.request(req)
@@ -231,7 +231,40 @@ class APIClient(object):
         )
         return trade
 
+    def get_open_trade(self) -> list:
+        req = trades.OpenTrades(self.account_id)
+        try:
+            resp = self.client.request(req)
+            logger.info(f'action=get_open_trade resp={resp}')
+        except V20Error as e:
+            logger.error(f'action=get_open_trade error={e}')
+            raise
+        trades_list = []
+        for trade in resp['trades']:
+            trades_list.insert(0, Trade(
+                trade_id=trade['id'],
+                side=constants.BUY if float(trade['currentUnits']) > 0 else constants.SELL,
+                units=float(trade['currentUnits']),
+                price=float(trade['price'])
+            ))
+        return trades_list
 
-
-
+    def trade_close(self, trade_id) -> Trade:
+        req = trades.TradeClose(self.account_id, trade_id)
+        try:
+            resp = self.client.request(req)
+            logger.info(f'action=trade_close resp={resp}')
+        except V20Error as e:
+            logger.error(f'action=trade_close error={e}')
+            raise
+        print(resp)
+        """
+        trade = Trade(
+            trade_id=trade_id,
+            side=constants.BUY if float(resp['orderFillTransaction']['units']) > 0 else constants.SELL,
+            units=float(resp['orderFillTransaction']['units']),
+            price=float(resp['orderFillTransaction']['price'])
+        )
+        return trade
+        """
 
